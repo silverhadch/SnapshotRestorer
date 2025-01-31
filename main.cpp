@@ -1,55 +1,63 @@
 #include <QApplication>
 #include <QMessageBox>
+#include <QDebug>
 #include <QProcess>
-#include <QString>
 #include <QFile>
 #include <QTextStream>
-#include <QRegExp>
+#include <QRegularExpression>
+#include <QRegularExpressionMatch>
 
-QString getSnapshotId() {
+bool isSnapshotBooted() {
+    // Read /proc/cmdline to detect if a snapshot is in use
     QFile file("/proc/cmdline");
-    if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        QTextStream in(&file);
-        QString cmdline = in.readAll();
-        file.close();
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
+        return false;
 
-        QRegExp snapshotPattern("/@/.snapshots/(\\d+)/snapshot");
-        if (snapshotPattern.indexIn(cmdline) != -1) {
-            QString snapshotId = snapshotPattern.cap(1);
-            return snapshotId.trimmed();
-        }
-    }
-    return "";
-}
+    QTextStream in(&file);
+    QString cmdline = in.readAll();
 
-void promptForRollback(const QString &snapshotId) {
-    int reply = QMessageBox::question(nullptr, "Restore Snapshot",
-                                       "Do you want to restore snapshot ID: " + snapshotId + "?",
-                                       QMessageBox::Yes | QMessageBox::No);
-    if (reply == QMessageBox::Yes) {
-        // Execute the rollback command and capture its output
-        QProcess process;
-        process.start("pkexec", QStringList() << "snapper" << "rollback" << snapshotId);
-        process.waitForFinished();
-
-        // Get the output of the command
-        QString output = process.readAllStandardOutput() + "\n" + process.readAllStandardError();
-
-        // Show a message box with the result
-        QMessageBox::information(nullptr, "Snapshot Restored", "Snapshot " + snapshotId + " restored successfully.\n\n" + output);
-    }
+    // Check if there's a snapshot present in the cmdline
+    QRegularExpression re("/@/.snapshots/([0-9]+)/snapshot");
+    QRegularExpressionMatch match = re.match(cmdline);
+    return match.hasMatch();
 }
 
 int main(int argc, char *argv[]) {
-    QApplication app(argc, argv);
+    QApplication a(argc, argv);
 
-    QString snapshotId = getSnapshotId();
-    if (!snapshotId.isEmpty()) {
-        promptForRollback(snapshotId);
-    } else {
-        QMessageBox::warning(nullptr, "No Snapshot Found", "No snapshot found to restore.");
+    // Only proceed if the system has booted into a snapshot
+    if (isSnapshotBooted()) {
+        // Extract snapshot ID from /proc/cmdline
+        QFile file("/proc/cmdline");
+        file.open(QIODevice::ReadOnly | QIODevice::Text);
+        QTextStream in(&file);
+        QString cmdline = in.readAll();
+
+        // Updated regex to match snapshot ID with multiple digits
+        QRegularExpression re("/@/.snapshots/([0-9]+)/snapshot");
+        QRegularExpressionMatch match = re.match(cmdline);
+        QString snapshotId = match.captured(1); // Capture the snapshot ID
+
+        if (!snapshotId.isEmpty()) {
+            // Prompt to restore snapshot
+            QMessageBox msgBox;
+            msgBox.setWindowTitle("Snapshot Restore");
+            msgBox.setText("You have booted into a snapshot. Do you want to restore it?");
+            msgBox.setInformativeText("Snapshot ID: " + snapshotId);
+            msgBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
+            msgBox.setDefaultButton(QMessageBox::No);
+
+            int ret = msgBox.exec();
+
+            if (ret == QMessageBox::Yes) {
+                // If user clicks Yes, perform rollback using pkexec
+                QProcess::execute("pkexec", QStringList() << "snapper" << "rollback" << snapshotId);
+                // Show success message
+                QMessageBox::information(nullptr, "Snapshot Restored", "Snapshot restored successfully!");
+            }
+        }
     }
 
-    return app.exec();
+    return a.exec();
 }
 
