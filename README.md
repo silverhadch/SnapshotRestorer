@@ -53,6 +53,7 @@ This will:
 - Compile the `SnapshotRestorer` application.
 - Install the binary into `/usr/bin`.
 - Install the `.desktop` file into `/usr/share/applications`.
+- And make an Systemwide Autostart.
 
 ### Usage
 
