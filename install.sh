@@ -41,6 +41,8 @@ echo "Making sure everything is executable..."
 sudo chmod +x $INSTALL_DIR_BIN/SnapshotRestorer
 sudo chmod +x $DESKTOP_FILE
 
+sudo cp $DESKTOP_FILE /etc/xdg/autostart/
+
 # Step 6: Clean up
 echo "Cleaning up build directory..."
 cd ..
