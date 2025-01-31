@@ -46,7 +46,7 @@ cd SnapshotRestorer
 3. Execute the install script to build and install the application:
 
 ```bash
-sudo ./install.sh
+./install.sh
 ```
 
 This will:
@@ -68,6 +68,7 @@ To uninstall the application, you can remove the binary and the `.desktop` file 
 ```bash
 sudo rm /usr/bin/SnapshotRestorer
 sudo rm /usr/share/applications/snapper-boot-restorer.desktop
+sudo rm /etc/xdg/autostart/snapper-boot-restorer.desktop
 ```
 
 ### License
