@@ -1,63 +1,53 @@
 #include <QApplication>
 #include <QMessageBox>
-#include <QDebug>
-#include <QProcess>
 #include <QFile>
-#include <QTextStream>
 #include <QRegularExpression>
-#include <QRegularExpressionMatch>
-
-bool isSnapshotBooted() {
-    // Read /proc/cmdline to detect if a snapshot is in use
-    QFile file("/proc/cmdline");
-    if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
-        return false;
-
-    QTextStream in(&file);
-    QString cmdline = in.readAll();
-
-    // Check if there's a snapshot present in the cmdline
-    QRegularExpression re("/@/.snapshots/([0-9]+)/snapshot");
-    QRegularExpressionMatch match = re.match(cmdline);
-    return match.hasMatch();
-}
+#include <QProcess>
+#include <QSharedMemory>
 
 int main(int argc, char *argv[]) {
-    QApplication a(argc, argv);
+    QApplication app(argc, argv);
 
-    // Only proceed if the system has booted into a snapshot
-    if (isSnapshotBooted()) {
-        // Extract snapshot ID from /proc/cmdline
-        QFile file("/proc/cmdline");
-        file.open(QIODevice::ReadOnly | QIODevice::Text);
-        QTextStream in(&file);
-        QString cmdline = in.readAll();
+    // Prevent multiple instances
+    QSharedMemory sharedMemory;
+    sharedMemory.setKey("SnapshotRestorerInstance");
 
-        // Updated regex to match snapshot ID with multiple digits
-        QRegularExpression re("/@/.snapshots/([0-9]+)/snapshot");
+    if (!sharedMemory.create(1)) {
+        // Another instance is already running
+        return 0;
+    }
+
+    // Check if booted into a snapshot
+    QFile cmdlineFile("/proc/cmdline");
+    if (cmdlineFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        QString cmdline = cmdlineFile.readAll();
+        QRegularExpression re(R"(/\.snapshots/(\d+)/snapshot)");
         QRegularExpressionMatch match = re.match(cmdline);
-        QString snapshotId = match.captured(1); // Capture the snapshot ID
 
-        if (!snapshotId.isEmpty()) {
-            // Prompt to restore snapshot
-            QMessageBox msgBox;
-            msgBox.setWindowTitle("Snapshot Restore");
-            msgBox.setText("You have booted into a snapshot. Do you want to restore it?");
-            msgBox.setInformativeText("Snapshot ID: " + snapshotId);
-            msgBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
-            msgBox.setDefaultButton(QMessageBox::No);
+        if (match.hasMatch()) {
+            QString snapshotId = match.captured(1);
 
-            int ret = msgBox.exec();
+            QMessageBox::StandardButton reply;
+            reply = QMessageBox::question(nullptr, "Snapshot Detected",
+                                          "You are booted into snapshot #" + snapshotId +
+                                          ". Do you want to restore it?",
+                                          QMessageBox::Yes | QMessageBox::No);
 
-            if (ret == QMessageBox::Yes) {
-                // If user clicks Yes, perform rollback using pkexec
-                QProcess::execute("pkexec", QStringList() << "snapper" << "rollback" << snapshotId);
-                // Show success message
-                QMessageBox::information(nullptr, "Snapshot Restored", "Snapshot restored successfully!");
+            if (reply == QMessageBox::Yes) {
+                QProcess process;
+                process.start("pkexec", {"snapper", "rollback", snapshotId});
+                process.waitForFinished();
+
+                // Display output from the snapper rollback command
+                QString output = process.readAllStandardOutput();
+                QString errorOutput = process.readAllStandardError();
+
+                QMessageBox::information(nullptr, "Snapshot Restored", 
+                                         output.isEmpty() ? errorOutput : output);
             }
         }
     }
 
-    return a.exec();
+    return 0;
 }
 
