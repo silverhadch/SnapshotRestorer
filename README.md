@@ -14,21 +14,6 @@ A simple tool for openSUSE that automatically detects if you have booted into a 
 
 To install and set up the `SnapshotRestorer` application, follow these steps:
 
-### Prerequisites
-
-Make sure you have the following dependencies installed:
-
-- **Qt5 Development Libraries**: For the graphical user interface.
-- **`pkexec`**: For running the `snapper rollback` command with elevated privileges.
-- **`cmake`**: For compiling the application.
-- **`make`** and **`gcc`**: For building the application.
-
-On openSUSE, you can install the dependencies with the following command:
-
-```bash
-sudo zypper install -y libqt5-qtbase-devel pkexec cmake make gcc
-```
-
 ### Clone the Repository and Install
 
 1. Clone this repository:
@@ -50,6 +35,7 @@ cd SnapshotRestorer
 ```
 
 This will:
+- Install the necessary dependencies automatically.
 - Compile the `SnapshotRestorer` application.
 - Install the binary into `/usr/bin`.
 - Install the `.desktop` file into `/usr/share/applications`.
@@ -84,6 +70,7 @@ Feel free to fork this repository and contribute by submitting pull requests. If
 
 - **openSUSE**: For providing a great platform to develop and test the tool.
 - **BTRFS**: For providing snapshots as a way to protect data and simplify rollback functionality.
+- **Garuda Linux Snapper Tools**: This project is inspired by Garuda Linux's Snapper Tools, which offer similar snapshot restore functionality when booting into snapshots.
 
 ## Contact
 
